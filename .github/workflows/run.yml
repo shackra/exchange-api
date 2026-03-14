@@ -1,7 +1,5 @@
 name: Publish-Currencies
 
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for branch 1 and on start directory, command.txt file changes or by manually running the workflow from actions tab
 on:
   schedule:
     - cron: '0 0 * * *'  # every day at midnight
@@ -9,38 +7,26 @@ on:
   workflow_dispatch:
 
 permissions: write-all
-  
-env: # Or as an environment variable
-  currlink: ${{ secrets.CURRLINK }}
-  currlink2: ${{ secrets.CURRLINK2 }}
-  currlink3: ${{ secrets.CURRLINK3 }}
-  currlink3key: ${{ secrets.CURRLINK3KEY }}
-  cryptolink: ${{ secrets.CRYPTOLINK }}
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
 
       - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '25.2.1'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install Dependencies
         run: |
-          sudo apt-get update -y
-          sudo apt-get install swapspace -y
           npm i
-          npx playwright install --with-deps
-          
+          npx playwright install --with-deps firefox
+
       - name: Running the command
         id: run-command
         continue-on-error: true
@@ -63,10 +49,12 @@ jobs:
       - name: publish
         run: |
           npm publish --access public package.tar.gz
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Add dist tag
         run: |
-          npm dist-tag add @fawazahmed0/currency-api@${{ env.date_today_semver }} ${{ env.date_today }}
+          npm dist-tag add @shackra/exchange-api@${{ env.date_today_semver }} ${{ env.date_today }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -76,13 +64,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: |
-           pages deploy --project-name=currency-api package
-           pages deploy --project-name=currency-api --branch=latest package
-           pages deploy --project-name=currency-api --branch=${{ env.date_today }} package
-
-
-#      - name: unpublish older version
-#        run: npm unpublish @fawazahmed0/currency-api@`date -d "94 days ago" -I | tr '-' '.'`
-#        env:
-#            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          
+           pages deploy --project-name=exchange-api package
+           pages deploy --project-name=exchange-api --branch=latest package
+           pages deploy --project-name=exchange-api --branch=${{ env.date_today }} package
