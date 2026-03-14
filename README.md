@@ -1,70 +1,80 @@
-<h1 align="center">Free Currency Exchange Rates API</h1> 
+# exchange-api
 
-<p align="center">
-  <img width="460" height="300" src="https://github.com/fawazahmed0/exchange-api/raw/main/money.jpg">
-</p>
+Fork of [fawazahmed0/exchange-api](https://github.com/fawazahmed0/exchange-api) with an accurate Costa Rican Colon (CRC) exchange rate sourced directly from the [Banco Central de Costa Rica (BCCR)](https://gee.bccr.fi.cr/IndicadoresEconomicos/Cuadros/frmConsultaTCVentanilla.aspx).
 
-[![Publish-Currencies](https://github.com/fawazahmed0/exchange-api/actions/workflows/run.yml/badge.svg)](https://github.com/fawazahmed0/exchange-api/actions/workflows/run.yml)
+[![Publish-Currencies](https://github.com/shackra/exchange-api/actions/workflows/run.yml/badge.svg)](https://github.com/shackra/exchange-api/actions/workflows/run.yml)
 
+## Why this fork?
 
-#### Features:
-- Free & Blazing Fast response
-- No Rate limits
-- 200+ Currencies, Including Common Cryptocurrencies & Metals
-- Daily Updated
+The upstream exchange-api provides exchange rates for 200+ currencies, but its CRC value comes from generic aggregator sources that often differ significantly from what Costa Rican financial entities actually report. This fork replaces the CRC rate with the **buy price from ARI Casa de Cambio Internacional S.A.**, as published on the BCCR's official ventanilla page.
 
+Everything else (all other currencies, crypto, metals) remains identical to the upstream.
 
-#### URL Structure:
+## How it works
 
-`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{date}/{apiVersion}/{endpoint}`
+A daily GitHub Actions cron job:
 
-#### Formats:
+1. Downloads the latest EUR-based rates from the upstream [fawazahmed0/exchange-api](https://github.com/fawazahmed0/exchange-api)
+2. Scrapes the BCCR ventanilla page using Playwright to get the CRC/USD buy rate from ARI Casa de Cambio Internacional S.A.
+3. Overrides the CRC value and regenerates all cross-rate JSON files
+4. Publishes to npm and Cloudflare Pages
 
-`date`
+If the BCCR scrape fails, the upstream CRC value is kept as a fallback.
 
-The date should either be `latest` or in `YYYY-MM-DD` format <br>
+## Usage
 
-The Endpoints Supports HTTP GET Method and returns the data in two formats:
+### URL structure
 
-`/{endpoint}.json`
+```
+https://cdn.jsdelivr.net/npm/@shackra/exchange-api@{date}/{apiVersion}/{endpoint}
+```
 
-`/{endpoint}.min.json`
+`date` should be `latest` or `YYYY-MM-DD` format.
 
+### Endpoints
 
-#### Endpoints:
+List all available currencies:
 
-- `/currencies`<br>
-> Lists all the available currencies in prettified json format:<br>
- https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json <br>
+```
+https://cdn.jsdelivr.net/npm/@shackra/exchange-api@latest/v1/currencies.json
+```
 
-> Get a minified version of it:<br>
-https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.min.json <br>
+Get rates with USD as base currency:
 
-- `/currencies/{currencyCode}`<br>
-> Get the currency list with EUR as base currency:<br>
-https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json <br>
+```
+https://cdn.jsdelivr.net/npm/@shackra/exchange-api@latest/v1/currencies/usd.json
+```
 
-> Get the currency list with EUR as base currency on date 2024-03-06:<br>
-https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@2024-03-06/v1/currencies/eur.json <br>
+Get rates with CRC as base currency:
 
-> Get the currency list with BTC as base currency:<br>
-https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/btc.json <br>
+```
+https://cdn.jsdelivr.net/npm/@shackra/exchange-api@latest/v1/currencies/crc.json
+```
 
-> Get the currency list with BTC as base currency in minified format:<br>
-https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/btc.min.json <br>
+Each endpoint is available in prettified (`.json`) and minified (`.min.json`) formats.
 
-#### Additional Fallback URL on Cloudflare: 
+## Local development
 
-`https://{date}.currency-api.pages.dev/{apiVersion}/{endpoint}`
+This project includes a `flake.nix` for NixOS users. Since Playwright downloads its own Firefox binary, a FHS environment is needed:
 
-> Get the currency list with EUR as base currency:<br>
-https://latest.currency-api.pages.dev/v1/currencies/eur.json
+```bash
+# Enter the FHS chroot where Playwright works
+nix run .#fhs
 
-> Get the currency list with EUR as base currency on date 2024-03-06:<br>
-https://2024-03-06.currency-api.pages.dev/v1/currencies/eur.json
+# Then inside:
+npm install
+npx playwright install firefox
+node currscript.js
+```
 
-**Warning:** Please include [Fallback mechanism](https://github.com/fawazahmed0/exchange-api/issues/90#issue-2168885277) in your code, for example if `cdn.jsdelivr.net` link fails, fetch from `currency-api.pages.dev`
+On non-NixOS systems, just run directly:
 
-**Migrating from Previous Currency API:** [Read this](https://github.com/fawazahmed0/exchange-api/blob/main/MIGRATION.md)
+```bash
+npm install
+npx playwright install --with-deps firefox
+node currscript.js
+```
 
+## License
 
+[MIT](LICENSE)
