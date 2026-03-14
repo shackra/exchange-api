@@ -6,9 +6,10 @@ on:
 
   workflow_dispatch:
 
-permissions: write-all
+permissions:
+  contents: read
+  id-token: write  # Required for npm Trusted Publishing (OIDC)
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install Dependencies
@@ -46,15 +47,17 @@ jobs:
           7z a package.tar package -ttar
           7z a package.tar.gz package.tar -tgzip -mx=9 -aoa -mfb=258 -mmt=on
 
-      - name: publish
-        run: |
-          npm publish --access public package.tar.gz
+      # Trusted Publishing: npm uses OIDC automatically, no token needed.
+      # For the FIRST publish only, set NPM_TOKEN secret and uncomment the
+      # env block below. Once the package exists on npm, configure Trusted
+      # Publishing on npmjs.com and remove the secret.
+      - name: Publish to npm
+        run: npm publish --access public package.tar.gz
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Add dist tag
-        run: |
-          npm dist-tag add @shackra/exchange-api@${{ env.date_today_semver }} ${{ env.date_today }}
+        run: npm dist-tag add @shackra/exchange-api@${{ env.date_today_semver }} ${{ env.date_today }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
