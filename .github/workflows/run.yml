@@ -2,7 +2,7 @@ name: Publish-Currencies
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # every day at midnight
+    - cron: '0 */2 * * *'  # every 120 minutes
 
   workflow_dispatch:
 
