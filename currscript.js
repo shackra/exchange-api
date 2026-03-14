@@ -110,6 +110,17 @@ cryptoDataObj = toLowerCaseKeysBaseCurr(cryptoDataObj,currDataObj['usd'])
 isocodes.forEach(e=>delete cryptoDataObj?.[e.toLowerCase()])
   let CurrJSON = { ...currDataObj, ...currDataObj3, ...cryptoDataObj, eur: 1 }
   currencyCodesToRemove.forEach(e=>delete CurrJSON?.[e.toLowerCase()])
+
+  // Override CRC with the buy rate from BCCR (ARI Casa de Cambio Internacional S.A.)
+  // The BCCR rate is CRC per 1 USD; we need to convert it to CRC per 1 EUR (the base currency)
+  const bcrCRCperUSD = await getBCCRExchangeRate()
+  if (bcrCRCperUSD && CurrJSON['usd']) {
+    // CRC per 1 EUR = (CRC per 1 USD) * (USD per 1 EUR)
+    // CurrJSON['usd'] is already "USD per 1 EUR"
+    CurrJSON['crc'] = bcrCRCperUSD * CurrJSON['usd']
+    console.log(`CRC rate overridden with BCCR data: ${CurrJSON['crc']} CRC per 1 EUR`)
+  }
+
   // return sorted object
   return sortObjByKeys(CurrJSON)
 }
@@ -158,6 +169,63 @@ async function getCurrData3(){
         console.error(e)
         return {}
     }finally{
+        await browser.close()
+    }
+}
+
+// Scrapes the BCCR ventanilla page to get the CRC/USD buy rate from ARI Casa de Cambio Internacional S.A.
+// Returns the buy price (colones per 1 USD), or null if scraping fails.
+async function getBCCRExchangeRate(){
+    const bcrURL = 'https://gee.bccr.fi.cr/IndicadoresEconomicos/Cuadros/frmConsultaTCVentanilla.aspx'
+    const browser = await firefox.launch({headless: true});
+    try {
+        const context = await browser.newContext({ ...devices['Desktop Firefox'] });
+        const page = await context.newPage();
+
+        for(let i=0;i<3;i++){
+            try{
+                await page.goto(bcrURL, { waitUntil: 'networkidle', timeout: 30000 })
+                break;
+            }catch(e){
+                if(i === 2) throw e
+            }
+        }
+
+        // Find the cell containing "ARI Casa de Cambio" and extract the buy (compra) value
+        // Row structure: [empty] [entity name] [compra] [venta] [diferencial] [date]
+        // Note: the page has a wrapper table whose cells contain all the text,
+        // so we filter by text length to only match the actual entity name cell.
+        const buyRate = await page.evaluate(() => {
+            const tds = document.querySelectorAll('td')
+            for (const td of tds) {
+                const text = td.textContent.trim()
+                if (text.startsWith('ARI Casa de Cambio') && text.length < 100) {
+                    const row = td.parentElement
+                    const cells = Array.from(row.querySelectorAll(':scope > td'))
+                    const idx = cells.indexOf(td)
+                    // compra (buy) is the cell right after the entity name
+                    const buyCell = cells[idx + 1]
+                    if (buyCell) {
+                        // Parse the value: format is "466,06" (comma as decimal separator)
+                        const rawText = buyCell.textContent.trim().replace(/\./g, '').replace(',', '.')
+                        return parseFloat(rawText)
+                    }
+                }
+            }
+            return null
+        })
+
+        if (buyRate && Number.isFinite(buyRate)) {
+            console.log(`BCCR ARI Casa de Cambio - CRC/USD buy rate: ${buyRate}`)
+            return buyRate
+        }
+
+        console.error('BCCR: Could not find ARI Casa de Cambio rate in the page')
+        return null
+    } catch(e) {
+        console.error('BCCR scraping failed:', e)
+        return null
+    } finally {
         await browser.close()
     }
 }
