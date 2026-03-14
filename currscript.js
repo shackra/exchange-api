@@ -3,289 +3,174 @@ const path = require('path')
 const { firefox, devices } = require('playwright')
 const semver = require('semver')
 
-
-// spaces to be used for prettify/json.stringify
 const indent = '\t'
+const dateToday = new Date().toISOString().substring(0, 10)
+const dateTodaySemVer = semver.clean(dateToday.replaceAll('-', '.'), true)
+const pathToSkeletonPackage = path.join(__dirname, 'skeleton-package.json')
+const apiVersion = 1
+const rootDir = path.join(__dirname, 'package', `v${apiVersion}`)
 
-// By market capitalization
-// Ref: https://coinmarketcap.com/all/views/all/
-let topCryptoCurrency = ["BTC","ETH","ADA","BNB","USDT","XRP","SOL","DOT","DOGE","USDC","UNI","LUNA","LINK","AVAX","LTC","BUSD","AAVE","FRAX","HBAR",
-                         "BCH","ALGO","WBTC","ICP","POL","FIL","TRX","FTT","XLM","VET","ATOM","ETC","THETA","DAI","XMR","MANA","ZEC","TUSD","EOS","AXS",
-                         "ONE","EGLD","CHZ","GRT","1INCH","INJ","ENJ","KSM","CRO","SHIB","LEO","NEAR","BTCB","FLOW","XTZ","KCS", "SAND","KLAY","MKR",
-                        "HT","DFI","TTT","WAVES","HNT","BSV","USDP","MIOTA","FTM","XEC","RUNE","QNT","NEO","CAKE","STX","LRC","OKB","NEXO","ZIL","DASH",
-                        "PAXG","CELO","BAT","CVX","CRV","KAVA","GALA","DCR","GNO","AMP","XDC","WEMIX","XEM","MINA","HOT","AR","GT","FEI","COMP","QTUM",
-                        "KNC","BTG","KDA","mBTC","uBTC","mETH","XCH","BSW","BAKE","KAS", "TON", "TONCOIN", "RVN","LDO","MNT","APT","ARB","OP","USDD","IMX","APE","SNX",
-                         "RNDR","RPL","XAUt","FXS","PEPE","CFX","CSPR","BTT","SUI","LUNC","GUSD","TWT","GMX","AKT","NFT","FLR","DYDX","WOO","MBX","AGIX",
-                         "ORDI","1000SATS", "PI"]
+// The upstream API from fawazahmed0/exchange-api (EUR as base currency)
+const UPSTREAM_API = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json'
+// Fallback URL in case jsDelivr is down
+const UPSTREAM_API_FALLBACK = 'https://latest.currency-api.pages.dev/v1/currencies/eur.json'
 
-let currencyCodesToRemove = ["CLF"]
-
-let isocodes = ["AFN","EUR","ALL","DZD","USD","AOA","XCD","XAD","ARS","AMD","AWG","AUD","AZN","BSD","BHD","BDT","BBD","BYN","BZD","XOF","BMD","INR","BTN","BOB","BOV","BAM","BWP","NOK","BRL","BND","BGN","BIF","CVE","KHR","XAF","CAD","KYD","CLP","CLF","CNY","COP","COU","KMF","CDF","NZD","CRC","CUP","XCG","CZK","DKK","DJF","DOP","EGP","SVC","ERN","SZL","ETB","FKP","FJD","XPF","GMD","GEL","GHS","GIP","GTQ","GBP","GNF","GYD","HTG","HNL","HKD","HUF","ISK","IDR","XDR","IRR","IQD","ILS","JMD","JPY","JOD","KZT","KES","KPW","KRW","KWD","KGS","LAK","LBP","LSL","ZAR","LRD","LYD","CHF","MOP","MKD","MGA","MWK","MYR","MVR","MRU","MUR","XUA","MXN","MXV","MDL","MNT","MAD","MZN","MMK","NAD","NPR","NIO","NGN","OMR","PKR","PAB","PGK","PYG","PEN","PHP","PLN","QAR","RON","RUB","RWF","SHP","WST","STN","SAR","RSD","SCR","SLE","SGD","XSU","SBD","SOS","SSP","LKR","SDG","SRD","SEK","CHE","CHW","SYP","TWD","TJS","TZS","THB","TOP","TTD","TND","TRY","TMT","UGX","UAH","AED","USN","UYU","UYI","UYW","UZS","VUV","VES","VED","VND","YER","ZMW","ZWG","XBA","XBB","XBC","XBD","XTS","XXX","XAU","XPD","XPT","XAG"]
-
-let currLink, currLink2, currLink3, currLink3Key, cryptoLink
-if (process.env.CI) {
-  currLink = process.env.currlink
-  currLink2 = process.env.currlink2
-  currLink3 = process.env.currlink3
-  currLink3Key = process.env.currlink3key
-  cryptoLink = process.env.cryptolink
-} else {
-  [currLink, currLink2, currLink3, currLink3Key, cryptoLink] = fs.readFileSync(path.join(__dirname, 'links.ini')).toString().split(/\r?\n/).map(e => e.trim())
-}
-// curr means currency
-// stores consolidated currencies in currcode:currname format i.e USD:US Dollar
-let allcurr = fs.readFileSync(path.join(__dirname, 'allcurrencies.min.json')).toString()
-allcurr = JSON.parse(allcurr)
-
-// Takes allcurr and have all the keys in uppercase
+// Currency name registry
+let allcurr = JSON.parse(fs.readFileSync(path.join(__dirname, 'allcurrencies.min.json')).toString())
 const allcurrKeyUpper = {}
 for (const [key, value] of Object.entries(allcurr)) { allcurrKeyUpper[key.toUpperCase()] = value }
 
-// Takes allcurr and store in lowercase currname:currcode format i.e. us dollar:usd
-const allcurrLower = {}
-for (const [key, value] of Object.entries(allcurr)) { allcurrLower[value.toLowerCase()] = key.toLowerCase() }
-
-const dateToday = new Date().toISOString().substring(0, 10)
-const dateTodaySemVer = semver.clean(dateToday.replaceAll('-','.'), true)
-
-const pathToSkeletonPackage = path.join(__dirname, 'skeleton-package.json')
-
-const apiVersion = 1
-
-const rootDir = path.join(__dirname, 'package', `v${apiVersion}`)
-
 begin()
-// Begins the program
+
 async function begin() {
-  // launch the browser
- // await launchBrowser()
+  // 1. Download EUR-based rates from the upstream API
+  console.log('Fetching upstream currency data...')
+  const eurData = await fetchUpstreamData()
+  if (!eurData) {
+    console.error('Failed to fetch upstream data. Aborting.')
+    process.exit(1)
+  }
 
+  const currJSON = eurData.eur
+  console.log(`Got ${Object.keys(currJSON).length} currencies from upstream (date: ${eurData.date})`)
 
+  // 2. Scrape the BCCR for the CRC buy rate from ARI Casa de Cambio
+  console.log('Scraping BCCR for CRC exchange rate...')
+  const crcPerUSD = await getBCCRExchangeRate()
+  if (crcPerUSD && currJSON['usd']) {
+    // Convert CRC/USD to CRC/EUR: multiply by (USD per 1 EUR)
+    const crcPerEUR = crcPerUSD * currJSON['usd']
+    console.log(`CRC overridden: ${currJSON['crc']} -> ${crcPerEUR} CRC per 1 EUR (BCCR buy: ${crcPerUSD} CRC/USD)`)
+    currJSON['crc'] = crcPerEUR
+  } else {
+    console.warn('Could not get BCCR rate, keeping upstream CRC value:', currJSON['crc'])
+  }
 
-  const currJSON = await getCurrencies()
-  // Get & Save All the available currencies in api
-  const availCurrListObj = await getAvailCurrencyJSON(currJSON)
+  // 3. Generate all API files
+  const availCurrListObj = getAvailCurrencyJSON(currJSON)
   fs.outputFileSync(path.join(rootDir, 'currencies.min.json'), JSON.stringify(availCurrListObj))
   fs.writeFileSync(path.join(rootDir, 'currencies.json'), JSON.stringify(availCurrListObj, null, indent))
 
-  // Generate API files
-  await generateFiles(currJSON)
+  generateFiles(currJSON)
 
-  // Set package version to dateToday
+  // 4. Write package metadata
   let barePackage = fs.readJsonSync(pathToSkeletonPackage)
   barePackage['version'] = dateTodaySemVer
-  fs.writeJSONSync(path.join(rootDir, '..' ,"package.json"), barePackage)
-  fs.writeFileSync(path.join(rootDir, '..' ,"index.js"),  "")
-
+  fs.writeJSONSync(path.join(rootDir, '..', 'package.json'), barePackage)
+  fs.writeFileSync(path.join(rootDir, '..', 'index.js'), '')
   fs.copyFileSync(path.join(__dirname, 'country.json'), path.join(rootDir, 'country.json'))
 
-  // Close the browser
-//  await browser.close()
+  console.log('Done! Files generated in', rootDir)
 }
 
-
-// Returns all the available currencies in the API
-async function getAvailCurrencyJSON(CurrObj) {
-  const availCurrListObj = {}
-  for (const key of Object.keys(CurrObj)) { 
-    availCurrListObj[key] = allcurrKeyUpper[key.toUpperCase()] || ""
-    if(!allcurrKeyUpper[key.toUpperCase()])
-    console.log(key,"currency code doesn't exist in allcurrencies.min.json")
-   }
-
-  return availCurrListObj
-}
-
-async function getCurrencies() {
-let currDataObj = await getCurrData(currLink)
-currDataObj = toLowerCaseKeysBaseCurr(currDataObj)
-
-let currDataObj3 = toLowerCaseKeysBaseCurr( (await getCurrData3()) )
-// we need to convert base usd to eur
-currDataObj3 = 'eur' in currDataObj3 ? toLowerCaseKeysBaseCurr(currDataObj3, 1/currDataObj3['eur']) : {}
-
-let cryptoDataObj = await getCryptoData()
-// we also need to convert base usd to eur
-cryptoDataObj = toLowerCaseKeysBaseCurr(cryptoDataObj,currDataObj['usd'])
-isocodes.forEach(e=>delete cryptoDataObj?.[e.toLowerCase()])
-  let CurrJSON = { ...currDataObj, ...currDataObj3, ...cryptoDataObj, eur: 1 }
-  currencyCodesToRemove.forEach(e=>delete CurrJSON?.[e.toLowerCase()])
-
-  // Override CRC with the buy rate from BCCR (ARI Casa de Cambio Internacional S.A.)
-  // The BCCR rate is CRC per 1 USD; we need to convert it to CRC per 1 EUR (the base currency)
-  const bcrCRCperUSD = await getBCCRExchangeRate()
-  if (bcrCRCperUSD && CurrJSON['usd']) {
-    // CRC per 1 EUR = (CRC per 1 USD) * (USD per 1 EUR)
-    // CurrJSON['usd'] is already "USD per 1 EUR"
-    CurrJSON['crc'] = bcrCRCperUSD * CurrJSON['usd']
-    console.log(`CRC rate overridden with BCCR data: ${CurrJSON['crc']} CRC per 1 EUR`)
+// Fetch EUR-based currency data from the upstream fawazahmed0 API
+async function fetchUpstreamData() {
+  for (const url of [UPSTREAM_API, UPSTREAM_API_FALLBACK]) {
+    try {
+      console.log(`  Trying ${url}`)
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return await response.json()
+    } catch (e) {
+      console.warn(`  Failed: ${e.message}`)
+    }
   }
-
-  // return sorted object
-  return sortObjByKeys(CurrJSON)
-}
-
-// Euro as base rates
-async function getCurrData(link){
-  let response = await fetch(link)
-  let data = await response.json()
-  return data.rates
-}
-
-// USD as base rates
-async function getCryptoData(){
-  let response = await fetch(cryptoLink)
-  let data = await response.json()
-  let cleanJSON = {}
-  for(let value of data.data.reverse())
-    cleanJSON[value.symbol] = value.quote.USD.price
-
-  return Object.fromEntries(                                                           // Dividing value by 1 to convert to 1 USD as base rate
-    Object.entries(cleanJSON).filter(([k, v]) => topCryptoCurrency.includes(k)).map(([k,v])=>[k,1/v]) )
-}
-
-async function getCurrData3(){
-
-    const browser = await firefox.launch({headless: true});
-    let arrRes = []
-    try{
-
-    const context = await browser.newContext({ ...devices['Desktop Firefox'] });
-    const page = await context.newPage();
-
-    const reg = new RegExp(currLink3Key, "gi")
-    page.on('response', async res => reg.test(res.url()) ? arrRes.push(await res.json().catch(console.error)) : '' );
-    for(let i=0;i<3;i++){
-        try{
-            await page.goto(currLink3)
-            break;
-        }catch(e){}
-    }
-
-    arrRes = arrRes.filter(e=>e?.rates?.USD == 1)
-    return arrRes.length > 0 ? arrRes[0].rates : {}
-
-    }catch(e){
-        console.error(e)
-        return {}
-    }finally{
-        await browser.close()
-    }
+  return null
 }
 
 // Scrapes the BCCR ventanilla page to get the CRC/USD buy rate from ARI Casa de Cambio Internacional S.A.
 // Returns the buy price (colones per 1 USD), or null if scraping fails.
-async function getBCCRExchangeRate(){
-    const bcrURL = 'https://gee.bccr.fi.cr/IndicadoresEconomicos/Cuadros/frmConsultaTCVentanilla.aspx'
-    const browser = await firefox.launch({headless: true});
-    try {
-        const context = await browser.newContext({ ...devices['Desktop Firefox'] });
-        const page = await context.newPage();
+async function getBCCRExchangeRate() {
+  const bcrURL = 'https://gee.bccr.fi.cr/IndicadoresEconomicos/Cuadros/frmConsultaTCVentanilla.aspx'
+  const browser = await firefox.launch({ headless: true })
+  try {
+    const context = await browser.newContext({ ...devices['Desktop Firefox'] })
+    const page = await context.newPage()
 
-        for(let i=0;i<3;i++){
-            try{
-                await page.goto(bcrURL, { waitUntil: 'networkidle', timeout: 30000 })
-                break;
-            }catch(e){
-                if(i === 2) throw e
-            }
-        }
-
-        // Find the cell containing "ARI Casa de Cambio" and extract the buy (compra) value
-        // Row structure: [empty] [entity name] [compra] [venta] [diferencial] [date]
-        // Note: the page has a wrapper table whose cells contain all the text,
-        // so we filter by text length to only match the actual entity name cell.
-        const buyRate = await page.evaluate(() => {
-            const tds = document.querySelectorAll('td')
-            for (const td of tds) {
-                const text = td.textContent.trim()
-                if (text.startsWith('ARI Casa de Cambio') && text.length < 100) {
-                    const row = td.parentElement
-                    const cells = Array.from(row.querySelectorAll(':scope > td'))
-                    const idx = cells.indexOf(td)
-                    // compra (buy) is the cell right after the entity name
-                    const buyCell = cells[idx + 1]
-                    if (buyCell) {
-                        // Parse the value: format is "466,06" (comma as decimal separator)
-                        const rawText = buyCell.textContent.trim().replace(/\./g, '').replace(',', '.')
-                        return parseFloat(rawText)
-                    }
-                }
-            }
-            return null
-        })
-
-        if (buyRate && Number.isFinite(buyRate)) {
-            console.log(`BCCR ARI Casa de Cambio - CRC/USD buy rate: ${buyRate}`)
-            return buyRate
-        }
-
-        console.error('BCCR: Could not find ARI Casa de Cambio rate in the page')
-        return null
-    } catch(e) {
-        console.error('BCCR scraping failed:', e)
-        return null
-    } finally {
-        await browser.close()
+    for (let i = 0; i < 3; i++) {
+      try {
+        await page.goto(bcrURL, { waitUntil: 'networkidle', timeout: 30000 })
+        break
+      } catch (e) {
+        if (i === 2) throw e
+      }
     }
+
+    // Find the cell containing "ARI Casa de Cambio" and extract the buy (compra) value
+    // Row structure: [empty] [entity name] [compra] [venta] [diferencial] [date]
+    // The page has nested tables; we filter by text length to skip the wrapper cell.
+    const buyRate = await page.evaluate(() => {
+      const tds = document.querySelectorAll('td')
+      for (const td of tds) {
+        const text = td.textContent.trim()
+        if (text.startsWith('ARI Casa de Cambio') && text.length < 100) {
+          const row = td.parentElement
+          const cells = Array.from(row.querySelectorAll(':scope > td'))
+          const idx = cells.indexOf(td)
+          const buyCell = cells[idx + 1]
+          if (buyCell) {
+            // Parse "466,06" -> 466.06
+            const rawText = buyCell.textContent.trim().replace(/\./g, '').replace(',', '.')
+            return parseFloat(rawText)
+          }
+        }
+      }
+      return null
+    })
+
+    if (buyRate && Number.isFinite(buyRate)) {
+      console.log(`  BCCR ARI Casa de Cambio - CRC/USD buy rate: ${buyRate}`)
+      return buyRate
+    }
+
+    console.error('  BCCR: Could not find ARI Casa de Cambio rate in the page')
+    return null
+  } catch (e) {
+    console.error('  BCCR scraping failed:', e.message)
+    return null
+  } finally {
+    await browser.close()
+  }
 }
 
-// convert object keys to lowercase and values to float
-// tocurr parameter
-// convert object having a base currency value to object of another base currency value
-// For example: pass object with base currency as usd, pass tocurr as 1Eur to 1.17USD i.e 1.17 to convert object to base currency as EUR
-function toLowerCaseKeysBaseCurr(obj, tocurr=1){
-let newobj = {}
-for(let [key,value] of Object.entries(obj)){
-    let tempValue = parseFloat(value)*parseFloat(tocurr)
-    if(Number.isFinite(tempValue))
-    newobj[key.toLowerCase()] = tempValue
-}
-return newobj
+// Returns all available currencies as {code: name}
+function getAvailCurrencyJSON(currObj) {
+  const result = {}
+  for (const key of Object.keys(currObj)) {
+    result[key] = allcurrKeyUpper[key.toUpperCase()] || ''
+    if (!allcurrKeyUpper[key.toUpperCase()])
+      console.log(key, "currency code doesn't exist in allcurrencies.min.json")
+  }
+  return result
 }
 
-
-// Sorts an object by keys and returns the sorted object
-function sortObjByKeys(obj) {
-  const sortedObj = {}
-  const sortedKeys = Object.keys(obj).sort()
-  for (const key of sortedKeys) { sortedObj[key] = obj[key] }
-  return sortedObj
-}
-
-// Generates the api files
-async function generateFiles(googBingCurrJSON) {
+// Generates per-currency JSON files with cross-rates
+function generateFiles(eurBasedRates) {
   const currenciesDir = path.join(rootDir, 'currencies')
-  fs.mkdirSync(currenciesDir, {
-    recursive: true
-  })
-  for (const [fromKey, fromValue] of Object.entries(googBingCurrJSON)) {
-    const tempObj = {}
-    tempObj['date'] = dateToday;
+  fs.mkdirSync(currenciesDir, { recursive: true })
+
+  for (const [fromKey, fromValue] of Object.entries(eurBasedRates)) {
+    const tempObj = { date: dateToday }
     tempObj[fromKey] = {}
 
-    for (const [toKey, toValue] of Object.entries(googBingCurrJSON)) 
+    for (const [toKey, toValue] of Object.entries(eurBasedRates))
       tempObj[fromKey][toKey] = currencyValue(fromValue, toValue)
-    
+
     fs.writeFileSync(path.join(currenciesDir, fromKey + '.min.json'), JSON.stringify(tempObj))
     fs.writeFileSync(path.join(currenciesDir, fromKey + '.json'), JSON.stringify(tempObj, null, indent))
   }
 }
 
-// return 1 fromCurr as base currency for toCurr
-// fromCurr & toCurr is against 1 USD or 1 EUR or something common
-// For example, if you pass 74 INR & 0.84 EUR and 1 INR = 0.011 Eur
-// It returns 0.011 , with numbers upto 20 decimal places
+// Compute cross-rate: 1 fromCurr = ? toCurr
 function currencyValue(fromCurr, toCurr) {
   return getSignificantNum(toCurr / fromCurr)
 }
 
-// If the value is very small, then return more significant digits
-function getSignificantNum(num){
-    let minSignificantDigits = 8
-    if(num >= 0.1)
-        return parseFloat(num.toFixed(minSignificantDigits))
-    let strNum = num.toFixed(100)
-    let numOfZeros = strNum.match(/^0\.0+/i)[0].length-2
-    return parseFloat(num.toFixed(minSignificantDigits+numOfZeros))
+function getSignificantNum(num) {
+  let minSignificantDigits = 8
+  if (num >= 0.1)
+    return parseFloat(num.toFixed(minSignificantDigits))
+  let strNum = num.toFixed(100)
+  let numOfZeros = strNum.match(/^0\.0+/i)[0].length - 2
+  return parseFloat(num.toFixed(minSignificantDigits + numOfZeros))
 }
