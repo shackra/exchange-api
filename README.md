@@ -29,7 +29,7 @@ If the BCCR scrape fails, the upstream CRC value is kept as a fallback.
 https://cdn.jsdelivr.net/npm/@shackra/exchange-api@{date}/{apiVersion}/{endpoint}
 ```
 
-`date` should be `latest` or `YYYY-MM-DD` format.
+`date` should be `latest` or `YYYY-MM-DDHHMM` format.
 
 ### Endpoints
 
