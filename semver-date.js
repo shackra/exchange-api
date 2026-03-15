@@ -2,7 +2,7 @@ const TZ = 'America/Costa_Rica'
 
 // Returns { dateTodaySemVer, dateToday } using Costa Rica local time.
 // Version format: YYYY.M.DHHMM (e.g. 2026.3.150540 for March 15 at 05:40)
-// dateToday format: YYYY-MM-DD
+// dateToday format: YYYY-MM-DD HH:MM UTC-6
 function getVersionInfo() {
   const now = new Date()
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -24,7 +24,7 @@ function getVersionInfo() {
   const minute = get('minute').padStart(2, '0')
 
   const dateTodaySemVer = `${year}.${month}.${day}${hour}${minute}`
-  const dateToday = `${year}-${get('month').padStart(2, '0')}-${day}`
+  const dateToday = `${year}-${get('month').padStart(2, '0')}-${day} ${hour}:${minute} UTC-6`
 
   return { dateTodaySemVer, dateToday }
 }
