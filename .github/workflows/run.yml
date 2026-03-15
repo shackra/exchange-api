@@ -39,10 +39,8 @@ jobs:
         if: ${{ steps.run-command.outcome == 'failure' }}
         run: node currscript.js
 
-      - name: Set date today
-        run: |
-          echo "date_today=`date -uI`" >> "$GITHUB_ENV"
-          echo "date_today_semver=`node semver-date.js`" >> "$GITHUB_ENV"
+      - name: Set date today (Costa Rica timezone)
+        run: node semver-date.js >> "$GITHUB_ENV"
 
       - name: Generate tarball
         run: |

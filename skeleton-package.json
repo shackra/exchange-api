@@ -1,7 +1,7 @@
 {
   "name": "@shackra/exchange-api",
   "main": "index.js",
-  "version": "YYYY.MM.DD",
+  "version": "YYYY.M.DDHHMM",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/shackra/exchange-api.git"

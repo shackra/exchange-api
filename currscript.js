@@ -1,11 +1,10 @@
 const fs = require('fs-extra')
 const path = require('path')
 const { firefox, devices } = require('playwright')
-const semver = require('semver')
+const { getVersionInfo } = require('./semver-date')
 
 const indent = '\t'
-const dateToday = new Date().toISOString().substring(0, 10)
-const dateTodaySemVer = semver.clean(dateToday.replaceAll('-', '.'), true)
+const { dateToday, dateTodaySemVer } = getVersionInfo()
 const pathToSkeletonPackage = path.join(__dirname, 'skeleton-package.json')
 const apiVersion = 1
 const rootDir = path.join(__dirname, 'package', `v${apiVersion}`)
