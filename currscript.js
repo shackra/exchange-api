@@ -9,10 +9,10 @@ const pathToSkeletonPackage = path.join(__dirname, 'skeleton-package.json')
 const apiVersion = 1
 const rootDir = path.join(__dirname, 'package', `v${apiVersion}`)
 
-// The upstream API from fawazahmed0/exchange-api (EUR as base currency)
-const UPSTREAM_API = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json'
+// The upstream API from fawazahmed0/exchange-api (USD as base currency)
+const UPSTREAM_API = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json'
 // Fallback URL in case jsDelivr is down
-const UPSTREAM_API_FALLBACK = 'https://latest.currency-api.pages.dev/v1/currencies/eur.json'
+const UPSTREAM_API_FALLBACK = 'https://latest.currency-api.pages.dev/v1/currencies/usd.json'
 
 // Currency name registry
 let allcurr = JSON.parse(fs.readFileSync(path.join(__dirname, 'allcurrencies.min.json')).toString())
@@ -37,10 +37,8 @@ async function begin() {
   console.log('Scraping BCCR for CRC exchange rate...')
   const crcPerUSD = await getBCCRExchangeRate()
   if (crcPerUSD && currJSON['usd']) {
-    // Convert CRC/USD to CRC/EUR: multiply by (USD per 1 EUR)
-    const crcPerEUR = crcPerUSD * currJSON['usd']
-    console.log(`CRC overridden: ${currJSON['crc']} -> ${crcPerEUR} CRC per 1 EUR (BCCR buy: ${crcPerUSD} CRC/USD)`)
-    currJSON['crc'] = crcPerEUR
+    console.log(`CRC overridden: ${currJSON['crc']} -> BCCR buy: ${crcPerUSD} CRC`)
+    currJSON['crc'] = crcPerUSD
   } else {
     console.warn('Could not get BCCR rate, keeping upstream CRC value:', currJSON['crc'])
   }
