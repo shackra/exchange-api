@@ -22,22 +22,24 @@ for (const [key, value] of Object.entries(allcurr)) { allcurrKeyUpper[key.toUppe
 begin()
 
 async function begin() {
-  // 1. Download EUR-based rates from the upstream API
+  // 1. Download USD-based rates from the upstream API
   console.log('Fetching upstream currency data...')
-  const eurData = await fetchUpstreamData()
-  if (!eurData) {
+  const usdData = await fetchUpstreamData()
+  if (!usdData) {
     console.error('Failed to fetch upstream data. Aborting.')
     process.exit(1)
   }
 
-  const currJSON = eurData.eur
-  console.log(`Got ${Object.keys(currJSON).length} currencies from upstream (date: ${eurData.date})`)
+  const currJSON = usdData.usd
+  console.log(`Got ${Object.keys(currJSON).length} currencies from upstream (date: ${usdData.date})`)
 
   // 2. Scrape the BCCR for the CRC buy rate from ARI Casa de Cambio
+  // The upstream API already gives rates as "1 USD = X currency", so the
+  // BCCR rate (colones per 1 USD) can be used directly.
   console.log('Scraping BCCR for CRC exchange rate...')
   const crcPerUSD = await getBCCRExchangeRate()
-  if (crcPerUSD && currJSON['usd']) {
-    console.log(`CRC overridden: ${currJSON['crc']} -> BCCR buy: ${crcPerUSD} CRC`)
+  if (crcPerUSD) {
+    console.log(`CRC overridden: ${currJSON['crc']} -> ${crcPerUSD} (BCCR buy rate)`)
     currJSON['crc'] = crcPerUSD
   } else {
     console.warn('Could not get BCCR rate, keeping upstream CRC value:', currJSON['crc'])
@@ -60,7 +62,7 @@ async function begin() {
   console.log('Done! Files generated in', rootDir)
 }
 
-// Fetch EUR-based currency data from the upstream fawazahmed0 API
+// Fetch USD-based currency data from the upstream fawazahmed0 API
 async function fetchUpstreamData() {
   for (const url of [UPSTREAM_API, UPSTREAM_API_FALLBACK]) {
     try {
@@ -142,15 +144,15 @@ function getAvailCurrencyJSON(currObj) {
 }
 
 // Generates per-currency JSON files with cross-rates
-function generateFiles(eurBasedRates) {
+function generateFiles(usdBasedRates) {
   const currenciesDir = path.join(rootDir, 'currencies')
   fs.mkdirSync(currenciesDir, { recursive: true })
 
-  for (const [fromKey, fromValue] of Object.entries(eurBasedRates)) {
+  for (const [fromKey, fromValue] of Object.entries(usdBasedRates)) {
     const tempObj = { date: dateToday }
     tempObj[fromKey] = {}
 
-    for (const [toKey, toValue] of Object.entries(eurBasedRates))
+    for (const [toKey, toValue] of Object.entries(usdBasedRates))
       tempObj[fromKey][toKey] = currencyValue(fromValue, toValue)
 
     fs.writeFileSync(path.join(currenciesDir, fromKey + '.min.json'), JSON.stringify(tempObj))
