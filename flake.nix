@@ -73,6 +73,7 @@
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.nodejs_22
+            pkgs.typescript-language-server
             fhsEnv
           ];
           shellHook = ''
