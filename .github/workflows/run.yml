@@ -47,17 +47,17 @@ jobs:
           7z a package.tar package -ttar
           7z a package.tar.gz package.tar -tgzip -mx=9 -aoa -mfb=258 -mmt=on
 
-      # Trusted Publishing: npm uses OIDC automatically, no token needed.
-      # For the FIRST publish only, set NPM_TOKEN secret and uncomment the
-      # env block below. Once the package exists on npm, configure Trusted
-      # Publishing on npmjs.com and remove the secret.
+      # Trusted Publishing: npm authenticates via OIDC automatically.
+      # Requires "id-token: write" permission (set above) and the trusted
+      # publisher configured on npmjs.com for this repository/workflow.
+      # --tag assigns the date as a dist-tag during publish.
       - name: Publish to npm
-        run: npm publish --access public package.tar.gz
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --tag ${{ env.date_today }} package.tar.gz
 
-      - name: Add dist tag
-        run: npm dist-tag add @shackra/exchange-api@${{ env.date_today_semver }} ${{ env.date_today }}
+      # OIDC does not support dist-tag operations (npm/cli#8547), so we
+      # need a classic token to point "latest" at the just-published version.
+      - name: Update latest dist-tag
+        run: npm dist-tag add @shackra/exchange-api@${{ env.date_today_semver }} latest
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
