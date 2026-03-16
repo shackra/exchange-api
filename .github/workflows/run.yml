@@ -30,6 +30,9 @@ jobs:
           npm i
           npx playwright install --with-deps firefox
 
+      - name: Set date today (Costa Rica timezone)
+        run: node semver-date.js >> "$GITHUB_ENV"
+
       - name: Running the command
         id: run-command
         continue-on-error: true
@@ -38,9 +41,6 @@ jobs:
       - name: Rerun the command if previous failed
         if: ${{ steps.run-command.outcome == 'failure' }}
         run: node currscript.js
-
-      - name: Set date today (Costa Rica timezone)
-        run: node semver-date.js >> "$GITHUB_ENV"
 
       - name: Generate tarball
         run: |

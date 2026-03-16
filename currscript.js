@@ -4,7 +4,13 @@ const { firefox, devices } = require('playwright')
 const { getVersionInfo } = require('./semver-date')
 
 const indent = '\t'
-const { dateToday, dateTodaySemVer } = getVersionInfo()
+
+// Prefer environment variables (set by semver-date.js in CI) so that every
+// workflow step uses the exact same timestamp.  Fall back to computing them
+// locally for convenience when running outside CI.
+const dateToday = process.env.date_today || getVersionInfo().dateToday
+const dateTodaySemVer = process.env.date_today_semver || getVersionInfo().dateTodaySemVer
+
 const pathToSkeletonPackage = path.join(__dirname, 'skeleton-package.json')
 const apiVersion = 1
 const rootDir = path.join(__dirname, 'package', `v${apiVersion}`)
